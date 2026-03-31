@@ -1,2 +1,2 @@
-**jembirdphotography.com**
-My photography portfolio built with Typescript
+# jembirdphotography.com
+My photography portfolio built with TypeScript.
