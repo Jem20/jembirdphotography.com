@@ -12,12 +12,14 @@ import {
   useTransition,
 } from 'react';
 import {
+  PATH_ABOUT,
   PATH_ADMIN_BASELINE,
   PATH_ADMIN_COMPONENTS,
   PATH_ADMIN_CONFIGURATION,
   PATH_ADMIN_INSIGHTS,
   PATH_ADMIN_PHOTOS,
   PATH_ADMIN_RECIPES,
+  PATH_ADMIN_ALBUMS,
   PATH_ADMIN_TAGS,
   PATH_ADMIN_UPLOADS,
   PATH_FULL_INFERRED,
@@ -36,14 +38,12 @@ import {
 } from '../app/path';
 import Modal from '../components/Modal';
 import { clsx } from 'clsx/lite';
-import { useDebounce } from 'use-debounce';
 import Spinner from '../components/Spinner';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { BiDesktop, BiLockAlt, BiMoon, BiSun } from 'react-icons/bi';
 import { IoClose, IoInvertModeSharp } from 'react-icons/io5';
 import { useAppState } from '@/app/AppState';
-import { searchPhotosAction } from '@/photo/actions';
 import { RiToolsFill } from 'react-icons/ri';
 import { signOutAction } from '@/auth/actions';
 import { getKeywordsForPhoto, titleForPhoto } from '@/photo';
@@ -63,6 +63,7 @@ import {
   COLOR_SORT_ENABLED,
   GRID_HOMEPAGE_ENABLED,
   HIDE_TAGS_WITH_ONE_PHOTO,
+  SHOW_ABOUT_PAGE,
 } from '@/app/config';
 import { DialogDescription, DialogTitle } from '@radix-ui/react-dialog';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
@@ -96,12 +97,14 @@ import { getSortStateFromPath } from '@/photo/sort/path';
 import IconSort from '@/components/icons/IconSort';
 import { useSelectPhotosState } from '@/admin/select/SelectPhotosState';
 import IconAlbum from '@/components/icons/IconAlbum';
+import usePhotoQuery from '@/photo/usePhotoQuery';
+import { clearCacheAction } from '@/photo/actions';
+import { toastSuccess } from '@/toast';
 
 const DIALOG_TITLE = 'Global Command-K Menu';
 const DIALOG_DESCRIPTION = 'For searching photos, views, and settings';
 
 const LISTENER_KEYDOWN = 'keydown';
-const MINIMUM_QUERY_LENGTH = 2;
 
 const MAX_HEIGHT = '20rem';
 
@@ -160,9 +163,11 @@ export default function CommandKClient({
     clearAuthStateAndRedirectIfNecessary,
     isCommandKOpen: isOpen,
     startUpload,
+    invalidateSwr,
     photosCountTotal,
     photosCountHidden = 0,
     uploadsCount,
+    albumsCount,
     tagsCount,
     recipesCount,
     insightsIndicatorStatus,
@@ -244,19 +249,13 @@ export default function CommandKClient({
     }
   }, [isWaiting, setIsOpen]);
 
-  // Raw query values
-  const [queryLiveRaw, setQueryLiveRaw] = useState('');
-  const [queryDebouncedRaw] =
-    useDebounce(queryLiveRaw, 500, { trailing: true });
-
-  // Parameterized query values
-  const queryLive = useMemo(() =>
-    queryLiveRaw.trim().toLocaleLowerCase(), [queryLiveRaw]);
-  const queryDebounced = useMemo(() =>
-    queryDebouncedRaw.trim().toLocaleLowerCase(), [queryDebouncedRaw]);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [queriedSections, setQueriedSections] = useState<CommandKSection[]>([]);
+  const [query, setQuery] = useState('');
+  const {
+    queryFormatted,
+    photos,
+    isLoading,
+    reset,
+  } = usePhotoQuery({ query, isEnabled: !isPending });
 
   const { setTheme } = useTheme();
 
@@ -281,55 +280,32 @@ export default function CommandKClient({
     return () => document.removeEventListener(LISTENER_KEYDOWN, down);
   }, [setIsOpen]);
 
-  useEffect(() => {
-    if (queryDebounced.length >= MINIMUM_QUERY_LENGTH && !isPending) {
-      setIsLoading(true);
-      searchPhotosAction(queryDebounced)
-        .then(photos => {
-          if (isOpenRef.current) {
-            setQueriedSections(photos.length > 0
-              ? [{
-                heading: 'Photos',
-                accessory: <IconPhoto size={14} />,
-                items: photos.map(photo => ({
-                  label: titleForPhoto(photo),
-                  keywords: getKeywordsForPhoto(photo),
-                  annotation: <PhotoDate {...{ photo, timezone: undefined }} />,
-                  accessory: <PhotoSmall photo={photo} />,
-                  path: pathForPhoto({ photo }),
-                })),
-              }]
-              : []);
-          } else {
-            // Ignore stale requests that come in after dialog is closed
-            setQueriedSections([]);
-          }
-          setIsLoading(false);
-        })
-        .catch(e => {
-          console.error(e);
-          setQueriedSections([]);
-          setIsLoading(false);
-        });
+  const queriedSections = useMemo<CommandKSection[]>(() => {
+    if (isOpenRef.current && photos.length > 0) {
+      return [{
+        heading: 'Photos',
+        accessory: <IconPhoto size={14} />,
+        items: photos.map(photo => ({
+          label: titleForPhoto(photo),
+          keywords: getKeywordsForPhoto(photo),
+          annotation: <PhotoDate {...{ photo, timezone: undefined }} />,
+          accessory: <PhotoSmall photo={photo} />,
+          path: pathForPhoto({ photo }),
+        })),
+      }];
+    } else {
+      return [];
     }
-  }, [queryDebounced, isPending, appText]);
-
-  useEffect(() => {
-    if (queryLive === '') {
-      setQueriedSections([]);
-      setIsLoading(false);
-    } else if (queryLive.length >= MINIMUM_QUERY_LENGTH) {
-      setIsLoading(true);
-    }
-  }, [queryLive]);
+  },    
+  [photos],
+  );
 
   useEffect(() => {
     if (!isOpen) {
-      setQueryLiveRaw('');
-      setQueriedSections([]);
-      setIsLoading(false);
+      setQuery('');
+      reset();
     }
-  }, [isOpen]);
+  }, [isOpen, reset]);
 
   const recent = recents[0];
   const recentsStatus = useMemo(() => {
@@ -343,17 +319,17 @@ export default function CommandKClient({
 
   // Years only accessible by search
   const years = useMemo(() =>
-    _years.filter(({ year }) => queryLive && year.includes(queryLive))
-  , [_years, queryLive]);
+    _years.filter(({ year }) => queryFormatted && year.includes(queryFormatted))
+  , [_years, queryFormatted]);
 
   const tags = useMemo(() => {
     const tagsIncludingPrivate = photosCountHidden > 0
       ? addPrivateToTags(_tags, photosCountHidden)
       : _tags;
     return HIDE_TAGS_WITH_ONE_PHOTO
-      ? limitTagsByCount(tagsIncludingPrivate, 2, queryLive)
+      ? limitTagsByCount(tagsIncludingPrivate, 2, queryFormatted)
       : tagsIncludingPrivate;
-  }, [_tags, photosCountHidden, queryLive]);
+  }, [_tags, photosCountHidden, queryFormatted]);
 
   const categorySections: CommandKSection[] = useMemo(() =>
     CATEGORY_VISIBILITY
@@ -611,6 +587,13 @@ export default function CommandKClient({
     ? [pageGrid, pageFull]
     : [pageFull, pageGrid];
 
+  if (SHOW_ABOUT_PAGE) {
+    pageItems.push({
+      label: appText.nav.about,
+      path: PATH_ABOUT,
+    });
+  }
+
   const sectionPages: CommandKSection = {
     heading: appText.cmdk.pages,
     accessory: <CgFileDocument size={14} className="translate-x-[-0.5px]" />,
@@ -644,6 +627,13 @@ export default function CommandKClient({
       annotation: <IconLock narrow />,
       path: PATH_ADMIN_PHOTOS,
     });
+    if (albumsCount) {
+      adminSection.items.push({
+        label: `${appText.admin.manageAlbums} (${albumsCount})`,
+        annotation: <IconLock narrow />,
+        path: PATH_ADMIN_ALBUMS,
+      });
+    }
     if (tagsCount) {
       adminSection.items.push({
         label: `${appText.admin.manageTags} (${tagsCount})`,
@@ -672,6 +662,14 @@ export default function CommandKClient({
           stopSelectingPhotos?.();
         }
       },
+    }, {
+      label: appText.admin.clearCache,
+      annotation: <IconLock narrow />,
+      action: () => clearCacheAction()
+        .then(() => {
+          invalidateSwr?.();
+          toastSuccess(appText.admin.clearCacheSuccess);
+        }),
     }, {
       label: <span className="flex items-center gap-3">
         {appText.admin.appInsights}
@@ -742,9 +740,9 @@ export default function CommandKClient({
         )}>
           <Command.Input
             ref={refInput}
-            value={queryLiveRaw}
+            value={query}
             onValueChange={value => {
-              setQueryLiveRaw(value);
+              setQuery(value);
               updateMask();
             }}
             className={clsx(
@@ -773,15 +771,15 @@ export default function CommandKClient({
                   'text-gray-400/90 dark:text-gray-700',
                 )}
                 onClick={() => {
-                  if (queryLiveRaw) {
-                    setQueryLiveRaw('');
+                  if (query) {
+                    setQuery('');
                     updateMask();
                   } else {
                     setIsOpen?.(false);
                   }
                 }}
               >
-                {queryLiveRaw
+                {query
                   ? <IoClose size={17} className="text-dim" />
                   : <>
                     <span className="sm:hidden">
@@ -880,7 +878,7 @@ export default function CommandKClient({
                     />;
                   })}
                 </Command.Group>)}
-            {footer && !queryLive &&
+            {footer && !queryFormatted &&
               <div className={clsx(
                 'text-center text-base text-dim pt-1',
                 'pb-2',

@@ -1,4 +1,4 @@
-import { parseISO, parse, format, isDate } from 'date-fns';
+import { parseISO, parse, format, isValid } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Timezone } from './timezone';
 import { setDefaultDateFnLocale } from '@/i18n';
@@ -20,10 +20,12 @@ const DATE_FORMAT_LONG_PLACEHOLDER       = '00 000 0000 00:0000';
 const DATE_FORMAT_RSS                    = 'EEE, dd LLL yyyy HH:mm:ss xx';
 const DATE_FORMAT_RSS_PLACEHOLDER        = '000, 00 000 0000 00:00:00 00';
 
-const DATE_FORMAT_POSTGRES               = 'yyyy-MM-dd HH:mm:ss';
+export const DATE_FORMAT_POSTGRES               = 'yyyy-MM-dd HH:mm:ss';
 
 export const VALIDATION_EXAMPLE_POSTGRES        = '2025-01-03T21:00:44.000Z';
 export const VALIDATION_EXAMPLE_POSTGRES_NAIVE  = '2025-01-03 16:00:44';
+
+export const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 type AmbiguousTimestamp = number | string;
 
@@ -101,11 +103,8 @@ const dateFromTimestamp = (timestamp?: AmbiguousTimestamp): Date => {
       ? /.+Z/i.test(timestamp)
         ? new Date(timestamp)
         : new Date(`${timestamp}Z`)
-      // Check for date last to avoid destabilizing status quo
-      : isDate(timestamp)
-        ? timestamp
-        : undefined;
-  return date && !isNaN(date.getTime()) ? date : new Date();
+      : timestamp;
+  return isValid(date) ? date as Date : new Date();
 };
 
 const createNaiveDateWithOffset = (
@@ -161,3 +160,8 @@ export const validationMessageNaivePostgresDateString = (date = '') =>
   validateNaivePostgresDateString(date)
     ? undefined
     : `Invalid format (${VALIDATION_EXAMPLE_POSTGRES_NAIVE})`;
+
+// Short local timezone label, e.g. "EST", "PST", "UTC+5"
+export const getLocalTimeZoneLabel = () =>
+  new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' })
+    .split(' ').at(-1);

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { SharedHoverContext, SharedHoverProps } from './state';
 import { AnimatePresence, motion } from 'framer-motion';
-import MenuSurface from '../primitives/MenuSurface';
+import ComponentSurface from '../primitives/surface/ComponentSurface';
 import clsx from 'clsx/lite';
 
 const WINDOW_CHANGE_EVENTS = ['mouseup', 'mousewheel', 'resize'];
@@ -133,7 +133,7 @@ export default function SharedHoverProvider({
               className="fixed"
               style={hoverStyle}
             >
-              <MenuSurface
+              <ComponentSurface
                 className="max-w-none p-1!"
                 color={hoverProps.color}
               >
@@ -152,13 +152,13 @@ export default function SharedHoverProvider({
                   {/* Border */}
                   <div className={clsx(
                     'absolute inset-0',
-                    'rounded-[0.25rem]',
+                    'border rounded-[0.25rem]',
                     hoverProps.color === 'frosted'
-                      ? 'border border-gray-400/25'
+                      ? 'border-gray-400/25'
                       : 'border-medium',
                   )} />
                 </div>
-              </MenuSurface>
+              </ComponentSurface>
             </motion.div>}
         </AnimatePresence>
       </div>

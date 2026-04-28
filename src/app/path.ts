@@ -11,6 +11,7 @@ import { AlbumOrAlbumSlug } from '@/album';
 export const PATH_ROOT                  = '/';
 export const PATH_GRID                  = '/grid';
 export const PATH_FULL                  = '/full';
+export const PATH_ABOUT                 = '/about';
 export const PATH_ADMIN                 = '/admin';
 export const PATH_API                   = '/api';
 export const PATH_SIGN_IN               = '/sign-in';
@@ -23,6 +24,10 @@ export const PATH_GRID_INFERRED = GRID_HOMEPAGE_ENABLED
 export const PATH_FULL_INFERRED = GRID_HOMEPAGE_ENABLED
   ? PATH_FULL
   : PATH_ROOT;
+
+// Modifiers
+const EDIT = 'edit';
+const IMAGE = 'image';
 
 // Sort
 export const PARAM_SORT_TYPE_TAKEN_AT     = 'taken-at';
@@ -42,6 +47,8 @@ export const PATH_FEED_JSON             = '/feed.json';
 
 // Path prefixes
 export const PREFIX_PHOTO               = '/p';
+export const PREFIX_RECENTS             = '/recents';
+export const PREFIX_YEAR                = '/year';
 export const PREFIX_CAMERA              = '/shot-on';
 export const PREFIX_LENS                = '/lens';
 export const PREFIX_ALBUM               = '/album';
@@ -49,20 +56,18 @@ export const PREFIX_TAG                 = '/tag';
 export const PREFIX_RECIPE              = '/recipe';
 export const PREFIX_FILM                = '/film';
 export const PREFIX_FOCAL_LENGTH        = '/focal';
-export const PREFIX_YEAR                = '/year';
-export const PREFIX_RECENTS             = '/recents';
 
 // Dynamic paths
 const PATH_PHOTO_DYNAMIC                = `${PREFIX_PHOTO}/[photoId]`;
+const PATH_RECENTS_DYNAMIC              = `${PREFIX_RECENTS}/[photoId]`;
+const PATH_YEAR_DYNAMIC                 = `${PREFIX_YEAR}/[year]`;
 const PATH_CAMERA_DYNAMIC               = `${PREFIX_CAMERA}/[make]/[model]`;
 const PATH_LENS_DYNAMIC                 = `${PREFIX_LENS}/[make]/[model]`;
 const PATH_ALBUM_DYNAMIC                = `${PREFIX_ALBUM}/[album]`;
 const PATH_TAG_DYNAMIC                  = `${PREFIX_TAG}/[tag]`;
 const PATH_FILM_DYNAMIC                 = `${PREFIX_FILM}/[film]`;
-const PATH_FOCAL_LENGTH_DYNAMIC         = `${PREFIX_FOCAL_LENGTH}/[focal]`;
 const PATH_RECIPE_DYNAMIC               = `${PREFIX_RECIPE}/[recipe]`;
-const PATH_YEAR_DYNAMIC                 = `${PREFIX_YEAR}/[year]`;
-const PATH_RECENTS_DYNAMIC              = `${PREFIX_RECENTS}/[photoId]`;
+const PATH_FOCAL_LENGTH_DYNAMIC         = `${PREFIX_FOCAL_LENGTH}/[focal]`;
 
 // Admin paths
 export const PATH_ADMIN_PHOTOS          = `${PATH_ADMIN}/photos`;
@@ -73,6 +78,7 @@ export const PATH_ADMIN_TAGS            = `${PATH_ADMIN}/tags`;
 export const PATH_ADMIN_RECIPES         = `${PATH_ADMIN}/recipes`;
 export const PATH_ADMIN_CONFIGURATION   = `${PATH_ADMIN}/configuration`;
 export const PATH_ADMIN_INSIGHTS        = `${PATH_ADMIN}/insights`;
+export const PATH_ADMIN_ABOUT_EDIT      = `${PATH_ABOUT}/${EDIT}`;
 export const PATH_ADMIN_BASELINE        = `${PATH_ADMIN}/baseline`;
 export const PATH_ADMIN_COMPONENTS      = `${PATH_ADMIN}/components`;
 
@@ -85,11 +91,10 @@ export const PATH_API_STORAGE = `${PATH_API}/storage`;
 export const PATH_API_VERCEL_BLOB_UPLOAD = `${PATH_API_STORAGE}/vercel-blob`;
 export const PATH_API_PRESIGNED_URL = `${PATH_API_STORAGE}/presigned-url`;
 
-// Modifiers
-const EDIT = 'edit';
-const IMAGE = 'image';
+// Parameters
 export const PARAM_UPLOAD_TITLE = 'title';
 export const PARAM_SELECT = 'select';
+export const PARAM_REDIRECT = 'redirect';
 
 // Special characters
 export const MISSING_FIELD = '-';
@@ -104,6 +109,7 @@ export const PATHS_ADMIN = [
   PATH_ADMIN_RECIPES,
   PATH_ADMIN_INSIGHTS,
   PATH_ADMIN_CONFIGURATION,
+  PATH_ADMIN_ABOUT_EDIT,
   PATH_ADMIN_BASELINE,
   PATH_ADMIN_COMPONENTS,
 ];
@@ -112,6 +118,7 @@ export const PATHS_TO_CACHE = [
   PATH_ROOT,
   PATH_GRID,
   PATH_FULL,
+  PATH_ABOUT,
   PATH_OG,
   PATH_PHOTO_DYNAMIC,
   PATH_CAMERA_DYNAMIC,
@@ -427,10 +434,14 @@ export const isPathGrid = (pathname?: string) =>
 export const isPathFull = (pathname?: string) =>
   checkPathPrefix(pathname, PATH_FULL);
 
+export const isPathAbout = (pathname?: string) =>
+  checkPathPrefix(pathname, PATH_ABOUT);
+
 export const isPathTopLevel = (pathname?: string) =>
-  isPathRoot(pathname)||
+  isPathRoot(pathname) ||
   isPathGrid(pathname) ||
-  isPathFull(pathname);
+  isPathFull(pathname) ||
+  isPathAbout(pathname);
 
 export const isPathSignIn = (pathname?: string) =>
   checkPathPrefix(pathname, PATH_SIGN_IN);
@@ -457,6 +468,7 @@ export const isPathAdminInfo = (pathname?: string) =>
 export const isPathProtected = (pathname?: string) =>
   checkPathPrefix(pathname, PATH_ADMIN) ||
   checkPathPrefix(pathname, pathForTag(TAG_PRIVATE)) ||
+  checkPathPrefix(pathname, PATH_ADMIN_ABOUT_EDIT) ||
   checkPathPrefix(pathname, PATH_OG);
 
 export const getPathComponents = (
@@ -467,36 +479,55 @@ export const getPathComponents = (
 }) => {
   const photoIdFromPhoto = pathname.match(
     new RegExp(`^${PREFIX_PHOTO}/([^/]+)`))?.[1];
+  const recent = (
+    isPathRecents(pathname) ||
+    isPathRecentsPhoto(pathname)
+  ) ? true : undefined;
+  const photoIdFromRecents = pathname.match(
+    new RegExp(`^${PREFIX_RECENTS}/([^/]+)`))?.[1];
+  const year = pathname.match(
+    new RegExp(`^${PREFIX_YEAR}/([^/]+)`))?.[1];
   const photoIdFromCamera = pathname.match(
     new RegExp(`^${PREFIX_CAMERA}/[^/]+/[^/]+/([^/]+)`))?.[1];
   const cameraMake = pathname.match(
     new RegExp(`^${PREFIX_CAMERA}/([^/]+)`))?.[1];
   const cameraModel = pathname.match(
     new RegExp(`^${PREFIX_CAMERA}/[^/]+/([^/]+)`))?.[1];
+  const photoIdFromLens = pathname.match(
+    new RegExp(`^${PREFIX_LENS}/[^/]+/[^/]+/([^/]+)`))?.[1];
+  const lensMake = pathname.match(
+    new RegExp(`^${PREFIX_LENS}/([^/]+)`))?.[1];
+  const lensModel = pathname.match(
+    new RegExp(`^${PREFIX_LENS}/[^/]+/([^/]+)`))?.[1];
+  const photoIdFromAlbum = pathname.match(
+    new RegExp(`^${PREFIX_ALBUM}/[^/]+/([^/]+)`))?.[1];
   const photoIdFromTag = pathname.match(
     new RegExp(`^${PREFIX_TAG}/[^/]+/([^/]+)`))?.[1];
+  const photoIdFromRecipe = pathname.match(
+    new RegExp(`^${PREFIX_RECIPE}/[^/]+/([^/]+)`))?.[1];
   const photoIdFromFilm = pathname.match(
     new RegExp(`^${PREFIX_FILM}/[^/]+/([^/]+)`))?.[1];
   const photoIdFromFocalLength = pathname.match(
     new RegExp(`^${PREFIX_FOCAL_LENGTH}/[0-9]+mm/([^/]+)`))?.[1];
   const photoIdFromYear = pathname.match(
     new RegExp(`^${PREFIX_YEAR}/[^/]+/([^/]+)`))?.[1];
-  const photoIdFromRecents = pathname.match(
-    new RegExp(`^${PREFIX_RECENTS}/([^/]+)`))?.[1];
   const album = pathname.match(
     new RegExp(`^${PREFIX_ALBUM}/([^/]+)`))?.[1];
   const tag = pathname.match(
     new RegExp(`^${PREFIX_TAG}/([^/]+)`))?.[1];
+  const recipe = pathname.match(
+    new RegExp(`^${PREFIX_RECIPE}/([^/]+)`))?.[1];
   const film = pathname.match(
     new RegExp(`^${PREFIX_FILM}/([^/]+)`))?.[1] as string;
   const focalString = pathname.match(
     new RegExp(`^${PREFIX_FOCAL_LENGTH}/([0-9]+)mm`))?.[1];
-  const year = pathname.match(
-    new RegExp(`^${PREFIX_YEAR}/([^/]+)`))?.[1];
-  const recent = isPathRecents(pathname) ? true : undefined;
 
   const camera = cameraMake && cameraModel
     ? { make: cameraMake, model: cameraModel }
+    : undefined;
+
+  const lens = lensMake && lensModel
+    ? { make: lensMake, model: lensModel }
     : undefined;
 
   const focal = focalString ? parseInt(focalString) : undefined;
@@ -504,20 +535,25 @@ export const getPathComponents = (
   return {
     photoId: (
       photoIdFromPhoto ||
-      photoIdFromTag ||
-      photoIdFromCamera ||
-      photoIdFromFilm ||
-      photoIdFromFocalLength ||
+      photoIdFromRecents ||
       photoIdFromYear ||
-      photoIdFromRecents
+      photoIdFromCamera ||
+      photoIdFromLens ||
+      photoIdFromAlbum ||
+      photoIdFromTag ||
+      photoIdFromRecipe ||
+      photoIdFromFilm ||
+      photoIdFromFocalLength
     ),
+    recent,
+    year,
+    camera,
+    lens,
     album,
     tag,
-    camera,
+    recipe,
     film,
     focal,
-    year,
-    recent,
   };
 };
 
@@ -541,6 +577,7 @@ export const getEscapePath = (pathname?: string) => {
     (year && isPathYear(pathname)) ||
     (camera && isPathCamera(pathname)) ||
     (lens && isPathLens(pathname)) ||
+    (album && isPathAlbum(pathname)) ||
     (tag && isPathTag(pathname)) ||
     (film && isPathFilm(pathname)) ||
     (focal && isPathFocalLength(pathname)) ||

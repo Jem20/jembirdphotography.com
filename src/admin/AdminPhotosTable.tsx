@@ -12,7 +12,6 @@ import EditButton from './EditButton';
 import { useAppState } from '@/app/AppState';
 import { RevalidatePhoto } from '@/photo/InfinitePhotoScroll';
 import PhotoSyncButton from './PhotoSyncButton';
-import DeletePhotoButton from './DeletePhotoButton';
 import { Timezone } from '@/utility/timezone';
 import { photoNeedsToBeUpdated } from '@/photo/update';
 import PhotoVisibilityIcon from '@/photo/visibility/PhotoVisibilityIcon';
@@ -20,6 +19,7 @@ import { doesPhotoHaveDefaultVisibility } from '@/photo/visibility';
 import UpdateTooltip from '@/photo/update/UpdateTooltip';
 import PhotoColors from '@/photo/color/PhotoColors';
 import SyncColorButton from '@/photo/color/SyncColorButton';
+import AdminPhotoMenu from './AdminPhotoMenu';
 
 export default function AdminPhotosTable({
   photos,
@@ -29,6 +29,7 @@ export default function AdminPhotosTable({
   hasAiTextGeneration,
   dateType = 'createdAt',
   canEdit = true,
+  canSync,
   canDelete = true,
   timezone,
   shouldScrollIntoViewOnExternalSync,
@@ -42,6 +43,7 @@ export default function AdminPhotosTable({
   hasAiTextGeneration: boolean
   dateType?: 'createdAt' | 'updatedAt'
   canEdit?: boolean
+  canSync?: boolean
   canDelete?: boolean
   timezone?: Timezone
   shouldScrollIntoViewOnExternalSync?: boolean
@@ -127,26 +129,28 @@ export default function AdminPhotosTable({
           )}>
             {canEdit &&
               <EditButton path={pathForAdminPhotoEdit(photo)} />}
-            <PhotoSyncButton
-              photo={photo}
-              onSyncComplete={invalidateSwr}
-              isSyncingExternal={photoIdsSyncing.includes(photo.id)}
-              hasAiTextGeneration={hasAiTextGeneration}
-              disabled={photoIdsSyncing.length > 0}
-              className={opacityForPhotoId(photo.id)}
-              shouldConfirm
-              shouldToast
-              shouldScrollIntoViewOnExternalSync={
-                shouldScrollIntoViewOnExternalSync}
-              updateMode={updateMode}
-            />
+            {canSync &&
+              <PhotoSyncButton
+                photo={photo}
+                onSyncComplete={invalidateSwr}
+                isSyncingExternal={photoIdsSyncing.includes(photo.id)}
+                hasAiTextGeneration={hasAiTextGeneration}
+                disabled={photoIdsSyncing.length > 0}
+                className={opacityForPhotoId(photo.id)}
+                shouldConfirm
+                shouldToast
+                shouldScrollIntoViewOnExternalSync={
+                  shouldScrollIntoViewOnExternalSync}
+                updateMode={updateMode}
+              />}
             {debugColorData &&
               <SyncColorButton photoId={photo.id} />}
-            {canDelete &&
-              <DeletePhotoButton
-                photo={photo}
-                onDelete={() => revalidatePhoto?.(photo.id, true)}
-              />}
+            <AdminPhotoMenu
+              photo={photo}
+              revalidatePhoto={revalidatePhoto}
+              disabled={!canEdit || !canDelete}
+              alwaysVisible
+            />
           </div>
         </Fragment>)}
     </AdminTable>

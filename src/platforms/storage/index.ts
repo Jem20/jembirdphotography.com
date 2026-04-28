@@ -10,6 +10,7 @@ import {
   AWS_S3_BASE_URL,
   awsS3Copy,
   awsS3Delete,
+  awsS3GetSignedUrl,
   awsS3List,
   awsS3Put,
   isUrlFromAwsS3,
@@ -26,6 +27,7 @@ import {
   CLOUDFLARE_R2_BASE_URL_PUBLIC,
   cloudflareR2Copy,
   cloudflareR2Delete,
+  cloudflareR2GetSignedUrl,
   cloudflareR2List,
   cloudflareR2Put,
   isUrlFromCloudflareR2,
@@ -37,6 +39,7 @@ import {
   minioList,
   minioPut,
   isUrlFromMinio,
+  minioGetSignedUrl,
 } from './minio';
 import { PATH_API_PRESIGNED_URL } from '@/app/path';
 
@@ -67,13 +70,17 @@ export const getFileNamePartsFromStorageUrl = (url: string) => {
     fileName = '',
     fileNameBase = '',
     fileId = '',
+    fileModifier = '',
     fileExtension = '',
-  ] = url.match(/^(.+)\/((-*[a-z0-9]+-*([a-z0-9-]+))\.([a-z]{1,4}))$/i) ?? [];
+  ] = url.match(
+    /^(.+)\/((-*[a-z0-9]+-*([a-z0-9]+)-*([a-z0-9]+)*)\.([a-z]{1,4}))$/i,
+  ) ?? [];
   return {
     urlBase,
     fileName,
     fileNameBase,
     fileId,
+    fileModifier,
     fileExtension,
   };
 };
@@ -110,32 +117,33 @@ export const storageTypeFromUrl = (url: string): StorageType => {
 
 export const uploadFromClientViaPresignedUrl = async (
   file: File | Blob,
-  fileNameBase: string,
-  extension: string,
-  addRandomSuffix?: boolean,
+  fileName: string,
 ) => {
-  const key = addRandomSuffix
-    ? `${fileNameBase}-${generateStorageId()}.${extension}`
-    : `${fileNameBase}.${extension}`;
-
-  const url = await fetch(`${PATH_API_PRESIGNED_URL}/${key}`)
+  const url = await fetch(`${PATH_API_PRESIGNED_URL}/${fileName}`)
     .then((response) => response.text());
 
   return fetch(url, { method: 'PUT', body: file })
-    .then(() => `${baseUrlForStorage(CURRENT_STORAGE)}/${key}`);
+    .then(() => `${baseUrlForStorage(CURRENT_STORAGE)}/${fileName}`);
 };
 
 export const uploadFileFromClient = async (
   file: File | Blob,
-  fileNameBase: string,
+  _fileName: string,
   extension: string,
-) => (
-  CURRENT_STORAGE === 'cloudflare-r2' ||
-  CURRENT_STORAGE === 'aws-s3' ||
-  CURRENT_STORAGE === 'minio'
-)
-  ? uploadFromClientViaPresignedUrl(file, fileNameBase, extension, true)
-  : vercelBlobUploadFromClient(file, `${fileNameBase}.${extension}`);
+  addRandomSuffix = true,
+) => {
+  const fileName = addRandomSuffix
+    ? `${_fileName}-${generateStorageId()}.${extension}`
+    : `${_fileName}.${extension}`;
+
+  return (
+    CURRENT_STORAGE === 'cloudflare-r2' ||
+    CURRENT_STORAGE === 'aws-s3' ||
+    CURRENT_STORAGE === 'minio'
+  )
+    ? uploadFromClientViaPresignedUrl(file, fileName)
+    : vercelBlobUploadFromClient(file, fileName);
+};
 
 export const putFile = (
   file: Buffer,
@@ -241,6 +249,41 @@ export const getStorageUrlsForPrefix = async (prefix = '') => {
       if (!b.uploadedAt) { return -1; }
       return b.uploadedAt.getTime() - a.uploadedAt.getTime();
     });
+};
+
+// Used primarily for uploading files
+export const getSignedUrlForKey = async (
+  key: string,
+  method: 'GET' | 'PUT',
+  expiresIn = 3600,
+) => {
+  switch (CURRENT_STORAGE) {
+    case 'cloudflare-r2':
+      return cloudflareR2GetSignedUrl(key, method, expiresIn);
+    case 'minio':
+      return minioGetSignedUrl(key, method, expiresIn);
+    default:
+      return awsS3GetSignedUrl(key, method, expiresIn);
+  }
+};
+
+// Used for safely fetching files via presigned URLs
+export const getSignedUrlForUrl = (
+  url: string,
+  method: 'GET' | 'PUT',
+  expiresIn = 3600,
+) => {
+  const { fileName } = getFileNamePartsFromStorageUrl(url);
+  switch (storageTypeFromUrl(url)) {
+    case 'cloudflare-r2':
+      return cloudflareR2GetSignedUrl(fileName, method, expiresIn);
+    case 'minio':
+      return minioGetSignedUrl(fileName, method, expiresIn);
+    case 'aws-s3':
+      return awsS3GetSignedUrl(fileName, method, expiresIn);
+    default:
+      return url;
+  }
 };
 
 export const testStorageConnection = () =>

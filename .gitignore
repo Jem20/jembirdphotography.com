@@ -5,6 +5,9 @@
 /.pnp
 .pnp.js
 
+#db
+*.sql
+
 # testing
 /coverage
 
@@ -35,4 +38,6 @@ yarn-error.log*
 next-env.d.ts
 
 # temp files
+/backup
+/app/restore
 temp.jpg

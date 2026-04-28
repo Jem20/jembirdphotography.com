@@ -10,10 +10,22 @@ import { clsx } from 'clsx/lite';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import MoreMenuItem from './MoreMenuItem';
 import { clearGlobalFocus } from '@/utility/dom';
+import { FaChevronRight } from 'react-icons/fa6';
+import { MENU_SURFACE_STYLES } from '../primitives/surface';
 
 export type MoreMenuSection = {
   label?: string
-  items: ComponentProps<typeof MoreMenuItem>[]
+  items: (
+    // Either a menu item
+    ComponentProps<typeof MoreMenuItem> |
+    // or a submenu
+    {
+      label: string
+      labelComplex?: ReactNode
+      icon?: ReactNode
+      items: ComponentProps<typeof MoreMenuItem>[]
+    }
+  )[]
 }
 
 export default function MoreMenu({
@@ -30,6 +42,7 @@ export default function MoreMenu({
   isOpen: isOpenProp,
   setIsOpen: setIsOpenProp,
   onOpen,
+  disabled,
   ...props
 }: {
   sections: MoreMenuSection[]
@@ -42,6 +55,7 @@ export default function MoreMenu({
   isOpen?: boolean
   setIsOpen?: (isOpen: boolean) => void
   onOpen?: () => void
+  disabled?: boolean
 } & ComponentProps<typeof DropdownMenu.Content>){
   const [isOpenInternal, setIsOpenInternal] = useState(isOpenProp ?? false);
 
@@ -62,7 +76,7 @@ export default function MoreMenu({
       open={isOpen}
       onOpenChange={setIsOpen}
     >
-      <DropdownMenu.Trigger asChild>
+      <DropdownMenu.Trigger asChild {...{ disabled }}>
         <button
           type="button"
           className={clsx(
@@ -88,17 +102,7 @@ export default function MoreMenu({
           align={align}
           sideOffset={sideOffset}
           className={clsx(
-            'z-10',
-            'min-w-[8rem]',
-            'component-surface',
-            'py-1',
-            'not-dark:shadow-lg not-dark:shadow-gray-900/10',
-            'data-[side=top]:dark:shadow-[0_0px_40px_rgba(0,0,0,0.6)]',
-            'data-[side=bottom]:dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)]',
-            'data-[side=right]:dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)]',
-            'data-[side=top]:animate-fade-in-from-bottom',
-            'data-[side=bottom]:animate-fade-in-from-top',
-            'data-[side=right]:animate-fade-in-from-top',
+            MENU_SURFACE_STYLES,
             className,
           )}
         >
@@ -124,13 +128,56 @@ export default function MoreMenu({
                   {label}
                 </div>}
                 {items.map(item =>
-                  <div key={item.label} className="px-1">
-                    <MoreMenuItem
-                      {...item}
-                      dismissMenu={dismissMenu}
-                    />
-                  </div>,
-                )}
+                  'items' in item
+                    ? <DropdownMenu.DropdownMenuSub key={item.label}>
+                      <DropdownMenu.SubTrigger asChild>
+                        <div className="mx-1 focus:outline-none">
+                          <div className={clsx(
+                            'link outline-none focus:outline-none',
+                            'inline-flex w-full items-center h-8.5',
+                            'rounded-sm p-2.5',
+                            'items-center gap-1.5',
+                            'text-sm text-main hover:text-main',
+                            'hover:bg-gray-100/90 active:bg-gray-200/75',
+                            // eslint-disable-next-line max-len
+                            'dark:hover:bg-gray-800/60 dark:active:bg-gray-900/80',
+                            'select-none',
+                            'cursor-pointer',
+                            'whitespace-nowrap',
+                          )}>
+                            {item.icon && <div className="w-4.5">
+                              {item.icon}
+                            </div>}
+                            <span className="grow min-w-0 text-left">
+                              {item.labelComplex ?? item.label}
+                            </span>
+                            <FaChevronRight
+                              size={10}
+                              className="text-dim"
+                            />
+                          </div>
+                        </div>
+                      </DropdownMenu.SubTrigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.SubContent
+                          className={MENU_SURFACE_STYLES}
+                        >
+                          {item.items.map(item =>
+                            <div key={item.label} className="px-1">
+                              <MoreMenuItem
+                                {...item}
+                                dismissMenu={dismissMenu}
+                              />
+                            </div>)}
+                        </DropdownMenu.SubContent>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.DropdownMenuSub>
+                    : <div key={item.label} className="px-1">
+                      <MoreMenuItem
+                        {...item}
+                        dismissMenu={dismissMenu}
+                      />
+                    </div>)}
               </div>,
             )}
           </div>

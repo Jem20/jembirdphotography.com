@@ -69,7 +69,6 @@ export type FormMeta = {
   tagOptionsLimit?: number
   tagOptionsLimitValidationMessage?: string
   tagOptionsShouldParameterize?: boolean
-  shouldNotOverwriteWithNullDataOnSync?: boolean
   isJson?: boolean
   staticValue?: string
 };
@@ -89,7 +88,6 @@ const FORM_METADATA = (
     label: 'title',
     capitalize: true,
     validateStringMaxLength: STRING_MAX_LENGTH_SHORT,
-    shouldNotOverwriteWithNullDataOnSync: true,
   },
   caption: {
     section: 'text',
@@ -155,7 +153,6 @@ const FORM_METADATA = (
     noteShort: 'Fujifilm / Nikon / analog scans',
     tagOptions: filmOptions,
     tagOptionsLimit: 1,
-    shouldNotOverwriteWithNullDataOnSync: true,
   },
   recipeTitle: {
     section: 'exif',
@@ -187,7 +184,6 @@ const FORM_METADATA = (
     spellCheck: false,
     capitalize: false,
     shouldHide: ({ make }) => make !== MAKE_FUJIFILM,
-    shouldNotOverwriteWithNullDataOnSync: true,
     isJson: true,
     validate: value => {
       let validationMessage = undefined;
@@ -253,6 +249,18 @@ const FORM_METADATA = (
     label: 'blur data',
     readOnly: true,
   },
+  width: {
+    section: 'storage',
+    label: 'width',
+    readOnly: true,
+    hideIfEmpty: true,
+  },
+  height: {
+    section: 'storage',
+    label: 'height',
+    readOnly: true,
+    hideIfEmpty: true,
+  },
   aspectRatio: {
     section: 'storage',
     label: 'aspect ratio',
@@ -283,14 +291,14 @@ const FORM_METADATA = (
   },
 });
 
+export const FIELDS_TO_NOT_TOAST: (keyof PhotoFormData)[] = [
+  'colorData',
+  'colorSort',
+];
+
 export const FIELDS_WITH_JSON = Object.entries(FORM_METADATA())
   .filter(([_, meta]) => meta.isJson)
   .map(([key]) => key as keyof PhotoFormData);
-
-export const FIELDS_TO_NOT_OVERWRITE_WITH_NULL_DATA_ON_SYNC =
-  Object.entries(FORM_METADATA())
-    .filter(([_, meta]) => meta.shouldNotOverwriteWithNullDataOnSync)
-    .map(([key]) => key as keyof PhotoFormData);
 
 export const FORM_METADATA_ENTRIES = (
   ...args: Parameters<typeof FORM_METADATA>
@@ -389,7 +397,7 @@ export const convertFormDataToPhotoDbInsert = (
     : formData;
 
   // Capture tags before 'favorite' is excluded from insert
-  const tags = convertStringToArray(photoForm.tags) ?? [];
+  const tags = convertStringToArray(photoForm.tags);
   if (photoForm.favorite === 'true') {
     tags.push(TAG_FAVS);
   }
@@ -423,6 +431,12 @@ export const convertFormDataToPhotoDbInsert = (
     ...photoForm.recipeTitle && {
       recipeTitle: parameterize(photoForm.recipeTitle),
     },
+    width: photoForm.width
+      ? parseInt(photoForm.width)
+      : undefined,
+    height: photoForm.height
+      ? parseInt(photoForm.height)
+      : undefined,
     // Convert form strings to numbers
     aspectRatio: photoForm.aspectRatio
       ? roundToNumber(parseFloat(photoForm.aspectRatio), 6)

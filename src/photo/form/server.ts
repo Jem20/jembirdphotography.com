@@ -1,7 +1,7 @@
 import {
   getCompatibleExifValue,
   convertApertureValueToFNumber,
-  getAspectRatioFromExif,
+  getDimensionsFromExif,
   getOffsetFromExif,
 } from '@/utility/exif';
 import {
@@ -43,9 +43,16 @@ export const convertExifToFormData = (
   ) => getCompatibleExifValue(key, exif, exifr, exifrSpecificKey);
 
   const dateTimeOriginal = getExifValue('DateTimeOriginal');
+  const offset = getOffsetFromExif(exif, exifr);
+
+  const { width, height, aspectRatio } = getDimensionsFromExif(exif, exifr);
 
   return {
-    aspectRatio: getAspectRatioFromExif(exif).toString(),
+    ...width && height && {
+      width: width.toString(),
+      height: height.toString(),
+    },
+    aspectRatio: aspectRatio.toString(),
     make: getExifValue('Make'),
     model: getExifValue('Model'),
     focalLength: getExifValue('FocalLength')?.toString(),
@@ -74,7 +81,7 @@ export const convertExifToFormData = (
     ...dateTimeOriginal && {
       takenAt: convertTimestampWithOffsetToPostgresString(
         dateTimeOriginal,
-        getOffsetFromExif(exif, exifr),
+        offset,
       ),
       takenAtNaive:
         convertTimestampToNaivePostgresString(dateTimeOriginal),

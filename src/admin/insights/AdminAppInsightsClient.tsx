@@ -26,7 +26,7 @@ import {
   PhotoStats,
 } from '.';
 import EnvVar from '@/components/EnvVar';
-import { IoSyncCircle } from 'react-icons/io5';
+import { IoCheckmarkCircleOutline, IoSyncCircle } from 'react-icons/io5';
 import clsx from 'clsx/lite';
 import { PATH_ADMIN_PHOTOS_UPDATES } from '@/app/path';
 import { LiaBroomSolid } from 'react-icons/lia';
@@ -50,9 +50,13 @@ import { ReactNode } from 'react';
 import MaskedScroll from '@/components/MaskedScroll';
 import IconNext from '@/components/icons/IconNext';
 import Link from 'next/link';
+import IconNode from '@/components/icons/IconNode';
+import { formatDistanceToNowStrict } from 'date-fns';
+import ResponsiveText from '@/components/primitives/ResponsiveText';
 
 const DEBUG_COMMIT_SHA = '4cd29ed';
 const DEBUG_COMMIT_MESSAGE = 'Long commit message for debugging purposes';
+const DEBUG_COMMIT_DATE = new Date('2026-02-22T00:00:00Z');
 const DEBUG_BEHIND_BY = 9;
 const DEBUG_PHOTOS_NEED_SYNC_COUNT = 7;
 
@@ -116,6 +120,8 @@ const renderWarningIconSmall =
 export default function AdminAppInsightsClient({
   codeMeta,
   nextVersion,
+  reactVersion,
+  nodeVersion,
   insights,
   usedDeprecatedEnvVars,
   photoStats: {
@@ -133,6 +139,8 @@ export default function AdminAppInsightsClient({
 }: {
   codeMeta?: Awaited<ReturnType<typeof getGitHubMetaForCurrentApp>>
   nextVersion: string
+  reactVersion: string
+  nodeVersion?: string
   insights: ReturnType<typeof getAllInsights>
   usedDeprecatedEnvVars: typeof USED_DEPRECATED_ENV_VARS
   photoStats: PhotoStats
@@ -278,18 +286,52 @@ export default function AdminAppInsightsClient({
               <span className="truncate">
                 {VERCEL_GIT_COMMIT_MESSAGE ?? DEBUG_COMMIT_MESSAGE}
               </span>
+              <span className="text-dim">
+                (<ResponsiveText
+                  shortText={formatDistanceToNowStrict(
+                    codeMeta?.commitDate ?? DEBUG_COMMIT_DATE,
+                  )}
+                  className="whitespace-nowrap"
+                >
+                  {formatDistanceToNowStrict(
+                    codeMeta?.commitDate ?? DEBUG_COMMIT_DATE,
+                    { addSuffix: true },
+                  )}
+                </ResponsiveText>)
+              </span>
             </a>}
           />
           <ScoreCardRow
-            icon={<IconNext className="self-start translate-y-px" />}
+            icon={<IconNext className="translate-y-px" />}
+            content={<>
+              <Link
+                // eslint-disable-next-line max-len
+                href={`https://github.com/vercel/next.js/releases/tag/v${nextVersion}`}
+                target="blank"
+              >
+                Next.js {nextVersion}              
+              </Link>
+              {' '}
+              <Link
+                // eslint-disable-next-line max-len
+                href={`https://github.com/facebook/react/releases/tag/v${reactVersion}`}
+                className="text-dim hover:text-medium active:text-dim"
+                target="blank"
+              >
+                (React {reactVersion})
+              </Link>
+            </>}
+          />
+          {nodeVersion && <ScoreCardRow
+            icon={<IconNode className="translate-y-px" />}
             content={<Link
               // eslint-disable-next-line max-len
-              href={`https://github.com/vercel/next.js/releases/tag/v${nextVersion}`}
+              href={`https://github.com/nodejs/node/releases/tag/v${nodeVersion}`}
               target="blank"
             >
-              Next.js {nextVersion}
+              Node.js {nodeVersion}          
             </Link>}
-          />
+          />}
         </ScoreCard>
       </>}
       <ScoreCard title="Template recommendations">
@@ -479,8 +521,11 @@ export default function AdminAppInsightsClient({
               </>}
             />}
           </>
-          : <AdminEmptyState includeContainer={false}>
-            Nothing to report!
+          : <AdminEmptyState
+            icon={<IoCheckmarkCircleOutline />}
+            includeContainer={false}
+          >
+            No recommendations found
           </AdminEmptyState>}
       </ScoreCard>
       <ScoreCard title="Library Stats">

@@ -1,6 +1,5 @@
+import { DEFAULT_ASPECT_RATIO } from '@/photo';
 import { OrientationTypes, type ExifData, ExifTags } from 'ts-exif-parser';
-
-const OFFSET_REGEX = /[+-]\d\d:\d\d/;
 
 export const getCompatibleExifValue = (
   key: keyof ExifTags,
@@ -11,22 +10,29 @@ export const getCompatibleExifValue = (
 
 const isValueOffset = (value: any) =>
   typeof value === 'string' &&
-  OFFSET_REGEX.test(value);
+  /^[+-]\d\d:\d\d$/.test(value);
 
 export const getOffsetFromExif = (
   exif: ExifData,
   exifr: any,
 ) => (
-  Object.values(exif.tags as any).find(isValueOffset) ||
-  Object.values(exifr).find(isValueOffset)
+  Object.values(exif?.tags ?? {}).find(isValueOffset) ||
+  Object.values(exifr ?? {}).find(isValueOffset)
 ) as string | undefined;
 
-export const getAspectRatioFromExif = (data: ExifData): number => {
+export const getDimensionsFromExif = (
+  exif: ExifData,
+  exifr: any,
+): {
+  width: number | undefined
+  height: number | undefined
+  aspectRatio: number
+} => {
   // Using '||' operator to handle `Orientation` unexpectedly being '0'
-  const orientation = data.tags?.Orientation || OrientationTypes.TOP_LEFT;
+  const orientation = exif.tags?.Orientation || OrientationTypes.TOP_LEFT;
 
-  const width = data.imageSize?.width ?? 3.0;
-  const height = data.imageSize?.height ?? 2.0;
+  let width: number | undefined;
+  let height: number | undefined;
 
   switch (orientation) {
     case OrientationTypes.TOP_LEFT:
@@ -35,11 +41,25 @@ export const getAspectRatioFromExif = (data: ExifData): number => {
     case OrientationTypes.BOTTOM_LEFT:
     case OrientationTypes.LEFT_TOP:
     case OrientationTypes.RIGHT_BOTTOM:
-      return width / height;
+      width = exif.imageSize?.width || exifr.ImageWidth;
+      height = exif.imageSize?.height || exifr.ImageHeight;
+      break;
     case OrientationTypes.RIGHT_TOP:
     case OrientationTypes.LEFT_BOTTOM:
-      return height / width;
+      width = exif.imageSize?.height || exifr.ImageHeight;
+      height = exif.imageSize?.width || exifr.ImageWidth;
+      break;
   }
+
+  const aspectRatio = width && height
+    ? width / height
+    : DEFAULT_ASPECT_RATIO;
+
+  return {
+    width,
+    height,
+    aspectRatio,
+  };
 };
 
 export const convertApertureValueToFNumber = (

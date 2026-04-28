@@ -20,11 +20,13 @@ const LOCALE_TEXT_IMPORTS: Record<
 > = {
   'bd-bn': () => import('./locales/bd-bn').then(m => m.TEXT),
   'en-gb': () => import('./locales/en-gb').then(m => m.TEXT),
+  'es-es': () => import('./locales/es-es').then(m => m.TEXT),
   'hi-in': () => import('./locales/hi-in').then(m => m.TEXT),
   'id-id': () => import('./locales/id-id').then(m => m.TEXT),
   'pt-br': () => import('./locales/pt-br').then(m => m.TEXT),
   'pt-pt': () => import('./locales/pt-pt').then(m => m.TEXT),
   'tr-tr': () => import('./locales/tr-tr').then(m => m.TEXT),
+  'vi-vn': () => import('./locales/vi-vn').then(m => m.TEXT),
   'zh-cn': () => import('./locales/zh-cn').then(m => m.TEXT),
 };
 

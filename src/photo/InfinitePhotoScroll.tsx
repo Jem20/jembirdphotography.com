@@ -30,12 +30,15 @@ export default function InfinitePhotoScroll({
   sortBy,
   sortWithPriority,
   excludeFromFeeds,
+  recent,
+  year,
   camera,
   lens,
   tag,
   recipe,
   film,
   focal,
+  moreButtonClassName = 'mt-4',
   wrapMoreButtonInGrid,
   useCachedPhotos = true,
   includeHiddenPhotos,
@@ -47,6 +50,7 @@ export default function InfinitePhotoScroll({
   sortWithPriority?: boolean
   excludeFromFeeds?: boolean
   cacheKey: string
+  moreButtonClassName?: string
   wrapMoreButtonInGrid?: boolean
   useCachedPhotos?: boolean
   includeHiddenPhotos?: boolean
@@ -79,6 +83,8 @@ export default function InfinitePhotoScroll({
       excludeFromFeeds,
       limit: itemsPerPage,
       hidden: includeHiddenPhotos ? 'include' : 'exclude',
+      recent,
+      year,
       camera,
       lens,
       tag,
@@ -94,6 +100,8 @@ export default function InfinitePhotoScroll({
     initialOffset,
     itemsPerPage,
     includeHiddenPhotos,
+    recent,
+    year,
     camera,
     lens,
     tag,
@@ -172,7 +180,7 @@ export default function InfinitePhotoScroll({
           revalidatePhoto,
         })
       ))}
-      {!isFinished && <div className="mt-4">
+      {!isFinished && <div className={moreButtonClassName}>
         {wrapMoreButtonInGrid
           ? <AppGrid contentMain={renderMoreButton} />
           : renderMoreButton}
